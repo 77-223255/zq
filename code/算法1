@@ -1,0 +1,83 @@
+import librosa 
+import numpy as np
+import soundfile as sf  
+import os
+
+
+def load_wav_directory(folder_path):
+    '''
+    加载目录中所有WAV文件（librosa实现）
+    返回格式：[ (文件名1, 音频数组1, 长度1), (文件名2, 音频数组2, 长度2), ... ]
+    '''
+    audio_info = []
+    # 遍历文件夹并过滤WAV文件
+    for filename in os.listdir(folder_path):
+        if filename.lower().endswith('.wav'):
+            file_path = os.path.join(folder_path, filename)
+            y, _ = librosa.load(file_path, sr=None)
+            audio_info.append((filename, y, len(y)))  
+    return audio_info
+
+
+def overlay_audio(carrier, target, start_sample):
+    '''
+    将目标音频叠加到载体音频的指定位置
+    carrier: 载体音频数组
+    target: 目标音频数组
+    start_sample: 开始叠加的样本点位置
+    
+    示例：
+    载体 = [0.1, 0.2, 0.3, 0.4]  # 长度4
+    目标 = [0.5, 0.6]           # 长度2
+    start_sample = 1 → 结果：[0.1, 0.7, 0.9, 0.4]
+    start_sample = 3 → 目标截断为前1个样本：[0.5]
+    '''
+    # 计算有效叠加范围（示例：当载体长度5000，start_sample=4500，目标长度1000 → 有效长度500）
+    effective_target = target[:len(carrier) - start_sample]
+    
+    # 边界检查（示例：载体长度10，start_sample=15 → 直接返回）
+    if len(effective_target) == 0:
+        return carrier
+    
+    # 创建可修改副本（示例：将int16数组转换为float32避免溢出）
+    mixed = np.copy(carrier).astype(np.float32)
+    
+    # 执行波形叠加（示例：混合区间的数学运算 0.2+0.5=0.7）
+    mixed[start_sample:start_sample + len(effective_target)] += effective_target
+    
+    return mixed  # 直接返回叠加结果，不做归一化
+
+def save_audio(mixed_array, sr, output_path):
+    '''
+    将处理后的音频数组保存为WAV文件
+    mixed_array: 处理后的numpy数组
+    sr: 采样率
+    output_path: 保存路径（需包含.wav后缀）
+    '''
+    # 确保数据类型符合要求
+    sf.write(output_path, mixed_array.astype(np.float32), sr)
+    print(f"音频已保存至：{output_path}")
+
+carrier_audio = load_wav_directory(r"D:\NBU\副线\语音对抗\zq\data\carrier audio")
+target_command_audio = load_wav_directory(r"D:\NBU\副线\语音对抗\zq\data\Target command audio")
+
+for filename_c, audio_data_c, audio_length_c in carrier_audio:
+    print(f"正在处理：{filename_c}")
+    print(f"音频长度：{audio_length_c}个样本点")
+
+    mu = float('inf')
+    delta = 0
+
+    for filename_t, audio_data_t, audio_length_t in target_command_audio:
+        print(f"正在处理：{filename_t}")
+        print(f"音频长度：{audio_length_t}个样本点")
+
+        for i in range(audio_length_c/audio_length_t):
+            mu_i = 0
+            start_sample = i * audio_length_t
+            mixed = overlay_audio(audio_data_c, audio_data_t, start_sample)
+            
+            mu = min(mu, np.mean(mixed))
+            delta = max(delta, np.max(mixed) - np.min(mixed))
+
+
