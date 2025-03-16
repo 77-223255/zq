@@ -14,7 +14,7 @@ import torchaudio  # 确保torchaudio已安装
 # 初始化语音识别模型
 Conformer_CTC = nemo_asr.models.ASRModel.from_pretrained(model_name="stt_en_conformer_ctc_small")
 Conformer_Transducer = nemo_asr.models.ASRModel.from_pretrained(model_name="stt_en_conformer_transducer_small")
-ContextNet = nemo_asr.models.ASRModel.from_pretrained(model_name="stt_en_contextnet_256_mls")
+ContextNet = nemo_asr.models.ASRModel.from_pretrained(model_name="stt_en_contextnet_256")
 Citrinet = nemo_asr.models.ASRModel.from_pretrained(model_name="stt_en_citrinet_256")
 
 def transcribe_audio(audio_path):
